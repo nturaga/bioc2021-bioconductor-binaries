@@ -4,6 +4,10 @@
 
 This is a short package demo for Bioc2021 (45 mins).
 
+### Time
+
+18:00 PT / 21:00 ET - August 4th 2021
+
 ### Slides 
 
 https://bit.ly/bioc2021-package-binaries
