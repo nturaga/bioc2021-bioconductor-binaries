@@ -1,0 +1,99 @@
+# Demo - Fast binary installation
+
+## Launch bioconductor_docker image
+
+The Bioconductor docker images are available on Dockerhub and the source code
+on Github at https://github.com/Bioconductor/bioconductor_docker
+
+Clone the image,
+
+```
+git clone https://github.com/Bioconductor/bioconductor_docker
+
+cd bioconductor_docker
+```
+
+Start the image,
+
+```
+docker-compose up -d
+```
+
+## Demo of traditional installation of Bioconductor packages
+
+Let us first take a look at the repositories from which BiocManager downloads 
+the tarballs.
+
+```{r}
+BiocManager::repositories()
+```
+
+As you can see they are coming the location "https://bioconductor.org/packages/3.13/bioc" for software packages.
+
+So when we go ahead an install a package by running the command below,
+
+1. Download the tarball from Bioconductor.
+2. Compile on your local machine (your hardware / docker image)
+
+
+```{r}
+BiocManager::install('Rhtslib')
+```
+
+
+## Demo of Binary installation
+
+Let's take a look at the repositories first 
+
+NOTE: This works only on the docker images based on `bioconductor_docker`.
+
+```{r}
+AnVIL::repositories()
+```
+
+Binary installations are fundamentally different from traditional installation. These are pre-compiled on the docker images with all the system dependencies that are available on it.
+Once the binary package is downloaded on to your machine, all you need to do is point your `.libPaths()` to that location.
+
+The Docker image used through `docker-compose` will make it easy for us to store a package-library on our local machine at `$HOME/R/bioconductor_docker/<bioc_version>/`.
+
+All of this is made easily possible in the docker images.
+
+So, when we install a binary package,
+
+1. Download the binary tarball from the cloud, 
+    - You can choose either Google Cloud or Microsoft azure
+2. Point the `.libPaths()` location to recognize the package.
+
+```{r}
+azure <- 'https://bioconductordocker.blob.core.windows.net/packages'
+google <- 'https://storage.googleapis.com/bioconductor_docker/packages' ## default
+
+AnVIL::install('Rhtslib', force = TRUE) ## Default from Google
+
+AnVIL::install('Rhtslib', force = TRUE, binary_base_url = azure) ## Microsoft azure
+```
+
+
+## Benchmark analysis 
+
+Let's compare the speed of the two methods of installations. We shall use the 
+package `microbenchmark` for this.
+
+```{r}
+## Let's leverage the AnVIL installation to speed this up ;)
+AnVIL::install('microbenchmark')
+```
+
+Once it's installed, let's compare binary vs traditional installation
+
+```{r}
+res <- microbenchmark::microbenchmark(
+    "binary" = {AnVIL::install('rhdf5')},  
+    "traditional" = {BiocManager::install('rhdf5', force = TRUE)}, 
+    times = 2L ## Run the same process two times
+)
+```
+
+We can see that upon running this twice, measured in seconds there is a clear speed up.
+
+
