@@ -15,7 +15,7 @@ https://bit.ly/bioc2021-package-binaries
 
 ### Demo
 
-https://github.com/nturaga/bioc2021-bioconductor-binaries
+https://nturaga.github.io/bioc2021-bioconductor-binaries/
 
 ## Abstract 
 
