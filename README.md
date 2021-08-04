@@ -1,5 +1,6 @@
 # Fast package installation - Bioconductor package binaries
 
+
 ### Author: Nitesh Turaga (nitesh@ds.dfci.harvard.edu)
 
 This is a short package demo for Bioc2021 (45 mins).
@@ -11,6 +12,10 @@ This is a short package demo for Bioc2021 (45 mins).
 ### Slides 
 
 https://bit.ly/bioc2021-package-binaries
+
+### Demo
+
+https://github.com/nturaga/bioc2021-bioconductor-binaries
 
 ## Abstract 
 
