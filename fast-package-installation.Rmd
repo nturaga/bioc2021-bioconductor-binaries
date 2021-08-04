@@ -1,0 +1,229 @@
+---
+title: "Fast package installation with Bioconductor package binaries - Bioc2021"
+author: "Nitesh Turaga"
+date: "8/4/2021"
+output: 
+  html_document:
+    theme: sandstone
+    highlight: tango
+    toc: true
+---
+
+***
+
+# Launch bioconductor_docker image
+
+The Bioconductor docker images are available on Dockerhub and the
+source code on Github at
+https://github.com/Bioconductor/bioconductor_docker
+
+Clone the image,
+
+```{bash, eval=FALSE}
+git clone https://github.com/Bioconductor/bioconductor_docker
+
+cd bioconductor_docker
+```
+
+Start the image,
+
+```{bash, eval=FALSE}
+docker-compose up -d
+```
+
+To stop the image later
+
+```{bash, eval=FALSE}
+docker-compose stop
+```
+
+***
+
+# Demo of traditional installation of Bioconductor packages
+
+Let us first take a look at the repositories from which BiocManager
+downloads the tarballs.
+
+```{r biocmanager_repos, message=FALSE, warning=FALSE}
+BiocManager::repositories()
+```
+
+As you can see they are coming the location https://bioconductor.org/packages/3.13/bioc 
+for software packages.
+
+So when we go ahead an install a package by running the command below, two things happen
+
+1. It downloads the tarball for the package from Bioconductor.
+2. Then compiles on your local machine specific to your machine (or docker image)
+
+```{r, eval=FALSE}
+BiocManager::install('BiocGenerics')
+```
+
+The result is shown below is truncated for clarity. Notice the line starting with 
+`trying URL`, where the download happens, and then the line
+`byte-compile and prepare package for lazy loading` which starts the compilation.
+
+```
+'getOption("repos")' replaces Bioconductor standard repositories, see '?repositories' for
+details
+
+replacement repositories:
+    CRAN: https://packagemanager.rstudio.com/all/__linux__/focal/latest
+
+Bioconductor version 3.14 (BiocManager 1.30.16), R 4.1.0 (2021-05-18)
+Installing package(s) 'BiocGenerics'
+trying URL 'https://bioconductor.org/packages/3.14/bioc/src/contrib/BiocGenerics_0.39.1.tar.gz'
+Content type 'application/x-gzip' length 45497 bytes (44 KB)
+==================================================
+downloaded 44 KB
+
+* installing *source* package ‘BiocGenerics’ ...
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+Creating a new generic function for ‘append’ in package ‘BiocGenerics’
+Creating a new generic function for ‘as.data.frame’ in package ‘BiocGenerics’
+<truncated>
+Creating a new generic function for ‘dirname’ in package ‘BiocGenerics’
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (BiocGenerics)
+
+The downloaded source packages are in
+	‘/tmp/Rtmpm2LoxR/downloaded_packages’
+```
+
+Now when we take a look at the `.libPaths()` location here, it shows the path
+where your packages are being installed.
+
+```{r, echo=TRUE}
+.libPaths()
+```
+
+Remember that the path `/usr/local/lib/R/host-site-library` is mapped
+to your local machine at `$HOME/R/bioconductor_docker/3.14`.
+
+***
+
+# Demo of Binary installation of Bioconductor packages
+
+Binary installations are fundamentally different from traditional
+installation. These are pre-compiled on the docker images with all the
+system dependencies that are available on it. Let's take a look at the 
+repositories from where the binaries are downloaded.
+
+NOTE: This works only on the docker images based on
+`bioconductor_docker`.
+
+```{r message=FALSE, warning=FALSE}
+AnVIL::repositories()
+```
+
+Once the binary package is downloaded on to your machine, 
+all you need to do is point your `.libPaths()` to that location.
+
+**The controlled environment on these Bioconductor docker images 
+where we know the operating system and system dependencies, 
+make the binary packages possible.**
+
+So, when we install a binary package,
+
+1. Download the binary tarball from the cloud,
+  
+2. Point the `.libPaths()` location to recognize the package.
+
+```{r echo=TRUE, eval=FALSE}
+AnVIL::install('rhdf5')
+```
+
+Output of the install function shows us that the download of the package is 
+taking place from a location at https://storage.googleapis.com. This is an
+object store on the Google cloud. Comparing with the previous traditional 
+installation, there is no "byte compile" step.
+
+```
+'getOption("repos")' replaces Bioconductor standard repositories, see '?repositories' for details
+
+replacement repositories:
+    CRAN: https://packagemanager.rstudio.com/all/__linux__/focal/latest
+
+trying URL 'https://storage.googleapis.com/bioconductor_docker/packages/3.14/bioc/src/contrib/rhdf5_2.37.0_R_x86_64-pc-linux-gnu.tar.gz'
+Content type 'application/x-tar' length 7234933 bytes (6.9 MB)
+==================================================
+downloaded 6.9 MB
+
+* installing *binary* package ‘rhdf5’ ...
+* DONE (rhdf5)
+
+The downloaded source packages are in
+	‘/tmp/Rtmpm2LoxR/downloaded_packages’
+```
+
+To get more familiar with the binary installation process, let's take a look 
+at the function signature for `AnVI::install()`.
+
+```{r anvil_sig, message=FALSE}
+args(AnVIL::install)
+```
+
+We can specify the option `binary_base_url` for either Microsoft Azure or
+Google cloud (currently Google cloud is the default).
+
+```{r, eval=FALSE, echo=TRUE}
+azure <- 'https://bioconductordocker.blob.core.windows.net/packages'
+google <- 'https://storage.googleapis.com/bioconductor_docker/packages'
+
+AnVIL::install('Rhtslib') ## Default from Google
+
+## To explicitly install from google
+AnVIL::install('Rhtslib', force = TRUE, binary_base_url = google) 
+
+## from Microsoft azure
+AnVIL::install('Rhtslib', force = TRUE, binary_base_url = azure) 
+```
+
+***
+
+# Benchmark analysis - Binary vs Traditional installation
+
+Let's compare the speed of the two methods of installations. We shall
+use the package `microbenchmark` for this.
+
+```{r, eval=FALSE}
+## Let's leverage the AnVIL installation to speed this up ;)
+AnVIL::install('microbenchmark')
+```
+
+Once it's installed, let's compare binary vs traditional installation.
+
+```{r, warning=FALSE, message=FALSE}
+res <- microbenchmark::microbenchmark(
+    "binary" = {AnVIL::install(c('Rhtslib', 'rhdf5'))},
+    "traditional" = {BiocManager::install(c('Rhtslib', 'rhdf5'), force = TRUE)},
+    times = 2L ## Run the same process two times
+)
+```
+
+Print the result in `seconds` as the unit.
+
+```{r echo=TRUE}
+print(res, units = 's')
+```
+
+We can see that upon running this twice, measured in seconds there is
+a clear speed up comparing binary vs traditional installation.
+
+***
+
+# Conclusion - Session Info
+
+```{r}
+sessionInfo()
+```
+
